@@ -381,7 +381,7 @@ void TCPServer::doWrite(
 	PIOCPSocketContext pSocketContext, 
 	PIOCPIOContext pIOContext)
 {
-	
+	pSocketContext->removeIOContext(pIOContext);
 }
 
 bool TCPServer::doError(
