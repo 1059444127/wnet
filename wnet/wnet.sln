@@ -1,0 +1,26 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2012
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libConnect", "libConnect\libConnect.vcxproj", "{16A88E8E-2A2A-4299-AC31-78E614E8EC1D}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test", "test\test.vcxproj", "{E2C42A86-0FB7-4262-99D9-C7280F8B6A39}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{16A88E8E-2A2A-4299-AC31-78E614E8EC1D}.Debug|Win32.ActiveCfg = Debug|Win32
+		{16A88E8E-2A2A-4299-AC31-78E614E8EC1D}.Debug|Win32.Build.0 = Debug|Win32
+		{16A88E8E-2A2A-4299-AC31-78E614E8EC1D}.Release|Win32.ActiveCfg = Release|Win32
+		{16A88E8E-2A2A-4299-AC31-78E614E8EC1D}.Release|Win32.Build.0 = Release|Win32
+		{E2C42A86-0FB7-4262-99D9-C7280F8B6A39}.Debug|Win32.ActiveCfg = Debug|Win32
+		{E2C42A86-0FB7-4262-99D9-C7280F8B6A39}.Debug|Win32.Build.0 = Debug|Win32
+		{E2C42A86-0FB7-4262-99D9-C7280F8B6A39}.Release|Win32.ActiveCfg = Release|Win32
+		{E2C42A86-0FB7-4262-99D9-C7280F8B6A39}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
