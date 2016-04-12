@@ -22,7 +22,7 @@ namespace WStone {
 	*@brief : 加密通信数据。默认不加密
 	*@input : UTF8编码数据
 	***********************************************************/
-	typedef char8* (*encryptCallback)(const char8* input);
+	typedef char8* (*encryptCallback)(const char8* input, unsigned sizes);
 
 }
 
