@@ -6,9 +6,8 @@
 
 namespace WStone {
 
-TCPServerSession::TCPServerSession(
-	TCPServer* pServer, 
-	PIOCPSocketContext data) : 
+TCPServerSession::TCPServerSession(TCPServer* pServer, 
+								   PSocketContext data) : 
 _pServer(pServer),
 _socketContext(data),
 _recvBuffer(s_bufferlength),
@@ -85,8 +84,8 @@ bool TCPServerSession::postSend(
 
 		if(SOCKET_ERROR == result && 
 			WSA_IO_PENDING != WSAGetLastError()) {
-			LOG(L"发送数据错误[%s-%u]", getPeerIP(), msgid);
-			SYSLOG(L"错误信息", WSAGetLastError());
+			LOG("发送数据错误[%s-%u]", getPeerIP(), msgid);
+			SYSLOG("错误信息", WSAGetLastError());
 			_socketContext->removeIOContext(ioContext);
 			safeDeleteArray(sendBuffer);
 			return false;
@@ -102,7 +101,7 @@ bool TCPServerSession::send(unsigned int msgid, const char8* pdata)
 	return this->send(msgid, pdata, strlen(pdata));
 }
 
-bool TCPServerSession::postRecv(PIOCPIOContext pIOContext)
+bool TCPServerSession::postRecv(PIOContext pIOContext)
 {
 	if(nullptr == pIOContext) {
 		pIOContext = _socketContext->getNewIOContext();
@@ -120,7 +119,7 @@ bool TCPServerSession::postRecv(PIOCPIOContext pIOContext)
 
 	if((SOCKET_ERROR == nBytes) && 
 		(WSA_IO_PENDING != WSAGetLastError())) {
-		SYSLOG(L"发送数据失败", WSAGetLastError());
+		SYSLOG("发送数据失败", WSAGetLastError());
 		return false;
 	}
 
@@ -172,25 +171,24 @@ bool TCPServerSession::isValidPacket(char8** retPacket)
 	unsigned int retBytes = _pHeader->packetLength - sizeof(PacketHeader);
 	char8* data = _recvBuffer.read(retBytes);
 
-	char8* packet = new char8[_pHeader->packetLength + 1];
+	char8* packet = new char8[_pHeader->packetLength];
 	memcpy(packet, _pHeader, sizeof(PacketHeader));
 	memcpy(packet + sizeof(PacketHeader), data, retBytes);
 
 	auto newCrc = Crc::crc32(packet, _pHeader->packetLength);
 	if(oldCrc != newCrc) {
-		LOG(L"收到被破坏的包[%s]", getPeerIP());
+		LOG("收到被破坏的包[%s]", getPeerIP());
 		delete[] data;
 		delete[] packet;
 		*retPacket = nullptr;
 		return false;
 	}
 
-	packet[_pHeader->packetLength] = '\0';
 	*retPacket = packet;
 	return true;
 }
 
-bool TCPServerSession::unPacket(PIOCPIOContext pIOContext)
+bool TCPServerSession::unPacket(PIOContext pIOContext)
 {
 	_recvBuffer.write(pIOContext->buffer, 
 		pIOContext->overlapped.InternalHigh);
@@ -200,7 +198,7 @@ bool TCPServerSession::unPacket(PIOCPIOContext pIOContext)
 	}
 
 	if(s_signature != _pHeader->signature) {
-		LOG(L"获取到非法的数据包[%s]，关闭会话", getPeerIP());
+		LOG("获取到非法的数据包[%s]，关闭会话", getPeerIP());
 		return false;
 	}
 

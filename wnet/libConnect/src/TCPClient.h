@@ -9,9 +9,9 @@ namespace WStone {
 class TCPClient : 
 	public ITCPClient, 
 	public ISession,
-	public SingletonI<TCPClient>
+	public Singleton<TCPClient>
 {
-	friend class SingletonI<TCPClient>;
+	friend class Singleton<TCPClient>;
 
 public:
 	TCPClient(void);
@@ -59,9 +59,9 @@ private:
 	HANDLE _evtSocket;
 	LoopBuffer _sendBuffer;
 	LoopBuffer _recvBuffer;
-	FastMutex _mtMsgs;
-	PPacketHeader _pHeader;
-	std::map<unsigned int, messageCallBack> _msgs;
+	PPacketHeader _pPacketHeader;
+	FastMutex _mtMsgIDCB;
+	std::map<unsigned int, messageCallBack> _mapMsgIDCB;
 };
 
 }

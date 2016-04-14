@@ -7,9 +7,9 @@ namespace WStone {
 
 class TCPServer : 
 	public ITCPServer,
-	public SingletonI<TCPServer>
+	public Singleton<TCPServer>
 {
-	friend class SingletonI<TCPServer>;
+	friend class Singleton<TCPServer>;
 
 public:
 	TCPServer(void);
@@ -18,24 +18,19 @@ protected:
 	~TCPServer(void);
 
 public:
-	HANDLE getIOCP() { return _iocp; }
-
-public:
 	virtual bool start(unsigned short port) override;
 	virtual void stop() override;
 	virtual const std::vector<ISession*>& getClients() override;
 	virtual void mountMessage(unsigned int id, messageCallBack cb) override;
 
 public:
+	HANDLE getIOCP() { return _hIOCP; }
 	void addClients(ISession*);
 	void removeClients(ISession*);
-	ISession* findClients(PIOCPSocketContext);
+	ISession* findClients(PSocketContext);
 	messageCallBack getMessageCallBack(unsigned int id);
-	void doAccept(PIOCPSocketContext, PIOCPIOContext);
-	void doRead(PIOCPSocketContext, PIOCPIOContext);
-	void doWrite(PIOCPSocketContext, PIOCPIOContext);
-	bool doError(PIOCPSocketContext, unsigned long errID);
-	void doClose(PIOCPSocketContext);
+	bool handleIO(PSocketContext pSocketContext, 
+		PIOContext pIOCntext,BOOL status);
 
 private:
 	bool initIOCP();
@@ -43,22 +38,27 @@ private:
 	bool createListenerSocket(unsigned short post);
 	void destroyListenerSocket();
 	void clearClients();
-	bool bind2IOCP(PIOCPSocketContext);
-	bool postAccept(PIOCPIOContext);
+	bool bind2IOCP(PSocketContext);
+	bool postAccept(PIOContext);
+	void handleAccept(PSocketContext, PIOContext);
+	void handleRead(PSocketContext, PIOContext);
+	void handleWrite(PSocketContext, PIOContext);
+	bool handleError(PSocketContext);
+	void handleClose(PSocketContext);
 
 private:
-	HANDLE _iocp;
-	int _nThreads;
-	HANDLE* _pThreads;
+	int _threads;
+	HANDLE _hIOCP;
 	bool _isStarted;
-	LPFN_ACCEPTEX _fnAcceptEx;
-	PIOCPSocketContext _listenSocketContext;
-	const static int s_maxPostAccept = 10;
-	FastMutex _mtMsgs;
+	FastMutex _mtmsgs;
+	HANDLE* _pThreads;
 	FastMutex _mtClients;
+	LPFN_ACCEPTEX _fnAcceptEx;
 	std::vector<ISession*> _clients;
-	LPFN_GETACCEPTEXSOCKADDRS _fnGetAcceptExSockAddrs;
+	PSocketContext _listenSocketContext;
+	const static int s_maxPostAccept = 10;
 	std::map<unsigned int, messageCallBack> _msgs;
+	LPFN_GETACCEPTEXSOCKADDRS _fnGetAcceptExSockAddrs;
 };
 
 }

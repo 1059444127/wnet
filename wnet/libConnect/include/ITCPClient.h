@@ -43,7 +43,7 @@ public:
 	virtual bool isValidSession() = 0;
 
 	/**********************************************************
-	*@brief : 端口与服务的连接
+	*@brief : 端开连接
 	***********************************************************/
 	virtual void disconnect() = 0;
 
@@ -51,7 +51,6 @@ public:
 	*@brief : 挂载网络消息
 	*@id : 消息id
 	*@cb : 消息回调函数
-	*@return : 
 	***********************************************************/
 	virtual void mountMessage(unsigned int id, messageCallBack cb) = 0;
 };

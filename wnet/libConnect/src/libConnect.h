@@ -7,9 +7,9 @@ namespace WStone {
 
 class LibConnect : 
 	public ILibConnect,
-	public SingletonI<LibConnect>
+	public Singleton<LibConnect>
 {
-	friend class SingletonI<LibConnect>;
+	friend class Singleton<LibConnect>;
 
 public:
 	LibConnect();
@@ -24,6 +24,8 @@ public:
 public:
 	void setEncryptCallback(encryptCallback cb) override { _encryptCB = cb; }
 	encryptCallback getEncryptCallback() { return _encryptCB; }
+	void setDecryptCallback(decrptCallbalck cb) override { _decryptCB = cb; }
+	decrptCallbalck getDecryptCallback() { return _decryptCB; }
 	void setLogCallback(logCallback cb) override { _logCB = cb; };
 	logCallback getLogCallback() { return _logCB; }
 
@@ -33,6 +35,7 @@ private:
 
 private:
 	encryptCallback _encryptCB;
+	decrptCallbalck _decryptCB;
 	logCallback _logCB;
 };
 

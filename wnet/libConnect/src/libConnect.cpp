@@ -110,16 +110,16 @@ _tagPERSOCKETDATA::~_tagPERSOCKETDATA()
 	}
 }
 
-PIOCPIOContext _tagPERSOCKETDATA::getNewIOContext()
+PIOContext _tagPERSOCKETDATA::getNewIOContext()
 {
 	FastMutex::ScopedLock lock(_mtIOContexts);
 
-	PIOCPIOContext ret = new IOCPIOContext();
+	PIOContext ret = new IOContext();
 	ioContexts.push_back(ret);
 	return ret;
 }
 
-void _tagPERSOCKETDATA::removeIOContext(PIOCPIOContext pIOContext) 
+void _tagPERSOCKETDATA::removeIOContext(PIOContext pIOContext) 
 {
 	FastMutex::ScopedLock lock(_mtIOContexts);
 
@@ -190,19 +190,20 @@ _logCB(nullptr)
 
 LibConnect::~LibConnect()
 {
-	unLoadSocketLib();
-
 	TCPClient::destroyInstance();
 	TCPServer::destroyInstance();
+
+	unLoadSocketLib();
 }
 
 void LibConnect::loadSocketLib()
 {
 	WSADATA wsaData;
-	unsigned short wNeeds = MAKEWORD(2, 2);
-	int err = WSAStartup(wNeeds, &wsaData);
+	auto wNeeds = MAKEWORD(2, 2);
+
+	auto err = WSAStartup(wNeeds, &wsaData);
 	if(NO_ERROR != err) {
-		LOG(L"³õÊ¼»¯ÍøÂç¿â´íÎó[%d]", err);
+		LOG("³õÊ¼»¯ÍøÂç¿â´íÎó[%d]", err);
 	}
 }
 

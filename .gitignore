@@ -1,0 +1,8 @@
+Debug
+Release
+*.log
+*.pdb
+*.obj
+*.tlog
+*.idb
+*.pch

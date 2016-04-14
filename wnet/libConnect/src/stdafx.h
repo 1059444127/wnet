@@ -27,7 +27,7 @@
 #include <helpers\LoopBuffer.h>
 #include <helpers\MacroMember.h>
 #include <helpers\FastMutex.h>
-#include <helpers\SingletonI.h>
+#include <helpers\Singleton.h>
 #include <helpers\Crc.h>
 
 #include "Common.h"

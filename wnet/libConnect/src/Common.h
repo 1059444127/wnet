@@ -65,23 +65,22 @@ typedef struct _tagPERIODATA
 	WSABUF overlappedBuffer;
 	OperationType opType;
 	unsigned int fd;
-}IOCPIOContext, *PIOCPIOContext;
+}IOContext, *PIOContext;
 
 typedef struct _tagPERSOCKETDATA
 {
 	_tagPERSOCKETDATA();
-
 	~_tagPERSOCKETDATA();
 
-	PIOCPIOContext getNewIOContext();
-	void removeIOContext(PIOCPIOContext pIOContext);
+	PIOContext getNewIOContext();
+	void removeIOContext(PIOContext pIOContext);
 
 	unsigned int fd;
 	unsigned short clientPort;
 	std::wstring clientIP;
-	std::vector<PIOCPIOContext> ioContexts;
 	FastMutex _mtIOContexts;
-}IOCPSocketContext, *PIOCPSocketContext;
+	std::vector<PIOContext> ioContexts;
+}SocketContext, *PSocketContext;
 
 
 #pragma warning(disable : 4200)
@@ -103,8 +102,8 @@ typedef struct _tagPacketHeader
 }PacketHeader, *PPacketHeader;
 #pragma pack(pop)
 
-#define LOG(msg, ...) _internal_logCallback(__FILE__, __LINE__, msg, __VA_ARGS__)
-#define SYSLOG(msg, errid) _internal_sysLog(__FILE__, __LINE__, msg, errid)
+#define LOG(msg, ...) _internal_logCallback(__FILE__, __LINE__, L#msg, __VA_ARGS__)
+#define SYSLOG(msg, errid) _internal_sysLog(__FILE__, __LINE__, L#msg, errid)
 
 }
 

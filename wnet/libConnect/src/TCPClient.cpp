@@ -19,7 +19,7 @@ unsigned __stdcall workEventLoop(void* arg)
 			WSA_INFINITE, false);
 
 		if(WSA_WAIT_FAILED == ret) {
-			SYSLOG(L"网络发生错误", WSAGetLastError());
+			SYSLOG("网络发生错误", WSAGetLastError());
 			break;
 		}
 
@@ -27,33 +27,33 @@ unsigned __stdcall workEventLoop(void* arg)
 		ret = WSAEnumNetworkEvents(pTCPClient->getHandle(), 
 			pTCPClient->getSocketEvent(), &events);
 		if(SOCKET_ERROR == ret) {
-			SYSLOG(L"获取网络事件失败", WSAGetLastError());
+			SYSLOG("获取网络事件失败", WSAGetLastError());
 			break;
 		}
 
 		if(events.lNetworkEvents & FD_CONNECT) {
 			if(0 == events.iErrorCode[FD_CONNECT_BIT]) {
-				LOG(L"网络服务启动成功");
+				LOG("网络服务启动成功");
 				pTCPClient->setConneted(true);
 			} else {
-				SYSLOG(L"服务连接失败", events.iErrorCode[FD_CONNECT_BIT]);
+				SYSLOG("服务连接失败", events.iErrorCode[FD_CONNECT_BIT]);
 				break;
 			}
 
 		} else if(events.lNetworkEvents & FD_CLOSE) {
 			pTCPClient->disconnect();
 			pTCPClient->setConneted(false);
-			LOG(L"关闭网络服务");
+			LOG("关闭网络服务");
 			break;
 
 		} else if(events.lNetworkEvents & FD_READ) {
-			LOG(L"收到读数据消息 - %u", ++s_countRead);
+			LOG("收到读数据消息 - %u", ++s_countRead);
 			if(0 == events.iErrorCode[FD_READ_BIT]) {
 				if(!pTCPClient->onRecv()) {
 					break;
 				}
 			} else {
-				SYSLOG(L"收到错误的读数据消息", 
+				SYSLOG("收到错误的读数据消息", 
 					events.iErrorCode[FD_WRITE_BIT]);
 			}
 
@@ -63,13 +63,13 @@ unsigned __stdcall workEventLoop(void* arg)
 					break;
 				}
 			} else {
-				SYSLOG(L"收到错误的写数据消息", 
+				SYSLOG("收到错误的写数据消息", 
 					events.iErrorCode[FD_WRITE_BIT]);
 			}
 
 		} else {
-			LOG(L"发现未知事件 - %u", ++s_countUnknown);
-			SYSLOG(L"发现未知事件", WSAGetLastError());
+			LOG("发现未知事件 - %u", ++s_countUnknown);
+			SYSLOG("发现未知事件", WSAGetLastError());
 		}
 	}
 
@@ -85,7 +85,7 @@ _evtSocket(nullptr),
 _isAsync(true),
 _sendBuffer(s_bufferlength),
 _recvBuffer(s_bufferlength),
-_pHeader(nullptr),
+_pPacketHeader(nullptr),
 _isConnected(false)
 {
 
@@ -96,31 +96,31 @@ TCPClient::~TCPClient(void)
 {
 	disconnect();
 
-	safeDeleteArray(_pHeader);
+	safeDeleteArray(_pPacketHeader);
 }
 
 void TCPClient::mountMessage(
 	unsigned int id, 
 	messageCallBack cb)
 {
-	FastMutex::ScopedLock lock(_mtMsgs);
+	FastMutex::ScopedLock lock(_mtMsgIDCB);
 
-	auto itFound = _msgs.find(id);
-	if(itFound == _msgs.end()) {
-		_msgs.insert(std::make_pair(id, cb));
+	auto itFound = _mapMsgIDCB.find(id);
+	if(itFound == _mapMsgIDCB.end()) {
+		_mapMsgIDCB.insert(std::make_pair(id, cb));
 	}
 }
 
 messageCallBack TCPClient::getMessageCallBack(unsigned int id)
 {
-	FastMutex::ScopedLock lock(_mtMsgs);
+	FastMutex::ScopedLock lock(_mtMsgIDCB);
 
-	auto itFound = _msgs.find(id);
-	if(itFound != _msgs.end()) {
+	auto itFound = _mapMsgIDCB.find(id);
+	if(itFound != _mapMsgIDCB.end()) {
 		return itFound->second;
 	}
 
-	LOG(L"发现获取未注册消息回调函数");
+	LOG("发现获取未注册消息回调函数");
 	return nullptr;
 }
 
@@ -174,7 +174,7 @@ bool TCPClient::connect(
 
 	_fd = socket(AF_INET, SOCK_STREAM, 0);
 	if(INVALID_SOCKET == _fd) {
-		LOG(L"创建client套接字失败[%u]", WSAGetLastError());
+		LOG("创建client套接字失败[%u]", WSAGetLastError());
 		return false;
 	}
 
@@ -190,7 +190,7 @@ bool TCPClient::connect(
 		_thread = (HANDLE)_beginthreadex(nullptr, 0, 
 			&workEventLoop, this, 0, 0);
 		if(INVALID_HANDLE_VALUE == _thread) {
-			LOG(L"创建线程失败[%u]", GetLastError());
+			LOG("创建线程失败[%u]", GetLastError());
 			return false;
 		}
 
@@ -200,7 +200,7 @@ bool TCPClient::connect(
 
 	if(NO_ERROR != ::connect(_fd, (sockaddr*)&netAddr, sizeof(netAddr))) {
 		if(WSAEWOULDBLOCK != WSAGetLastError()) {
-			SYSLOG(L"连接服务失败", WSAGetLastError());
+			SYSLOG("连接服务失败", WSAGetLastError());
 			return false;
 		}
 	}
@@ -271,7 +271,7 @@ bool TCPClient::send(
 	sendBytes = ::send(_fd, sendBuffer, leng, 0);
 	if(SOCKET_ERROR == sendBytes && 
 		WSA_IO_PENDING != WSAGetLastError()) {
-			SYSLOG(L"数据发送失败", WSAGetLastError());
+			SYSLOG("数据发送失败", WSAGetLastError());
 	}
 
 	if(_isAsync && sendBytes != leng) {
@@ -310,12 +310,12 @@ bool TCPClient::unPacket()
 		return true; // 不完整的包头信息
 	}
 
-	if(s_signature != _pHeader->signature) {
-		LOG(L"获取到非法的数据包[%s]，关闭会话", getPeerIP());
+	if(s_signature != _pPacketHeader->signature) {
+		LOG("获取到非法的数据包[%s]，关闭会话", getPeerIP());
 		return false;
 	}
 
-	auto bodyLengths = _pHeader->packetLength - headerSizes;
+	auto bodyLengths = _pPacketHeader->packetLength - headerSizes;
 	if(_recvBuffer.dataLength() < bodyLengths) {
 		return true;// 包不完整，等待完整的包
 	}
@@ -325,7 +325,7 @@ bool TCPClient::unPacket()
 		return false;
 
 	} else {
-		auto msgCB = getMessageCallBack(_pHeader->msgid);
+		auto msgCB = getMessageCallBack(_pPacketHeader->msgid);
 		if(nullptr != msgCB) {// 调用注册的回调信息
 			msgCB(
 				dynamic_cast<ISession*>(this), 
@@ -342,19 +342,19 @@ bool TCPClient::unPacket()
 
 bool TCPClient::isValidPacket(char8** retPacket)
 {
-	auto oldCrc = _pHeader->crc;
-	_pHeader->crc = 0;
+	auto oldCrc = _pPacketHeader->crc;
+	_pPacketHeader->crc = 0;
 
-	auto bodyBytes = (_pHeader->packetLength) - sizeof(PacketHeader);
+	auto bodyBytes = (_pPacketHeader->packetLength) - sizeof(PacketHeader);
 	char8* body = _recvBuffer.read(bodyBytes);
 
-	char8* packet = new char8[_pHeader->packetLength];
-	memcpy(packet, _pHeader, sizeof(PacketHeader));
+	char8* packet = new char8[_pPacketHeader->packetLength];
+	memcpy(packet, _pPacketHeader, sizeof(PacketHeader));
 	memcpy(packet + sizeof(PacketHeader), body, bodyBytes);
 
-	auto newCrc = Crc::crc32(packet, _pHeader->packetLength);
+	auto newCrc = Crc::crc32(packet, _pPacketHeader->packetLength);
 	if(oldCrc != newCrc) {
-		LOG(L"收到被破坏的包[%s]", getPeerIP());
+		LOG("收到被破坏的包[%s]", getPeerIP());
 		delete[] body;
 		delete[] packet;
 		retPacket = nullptr;
@@ -367,7 +367,7 @@ bool TCPClient::isValidPacket(char8** retPacket)
 
 bool TCPClient::setPacketHeader()
 {
-	if(nullptr == _pHeader) {
+	if(nullptr == _pPacketHeader) {
 
 		auto headerSizes = sizeof(PacketHeader);
 		if(headerSizes > _recvBuffer.dataLength()) {
@@ -375,12 +375,12 @@ bool TCPClient::setPacketHeader()
 		}
 
 		char8* retBuffer = _recvBuffer.read(headerSizes);
-		_pHeader = reinterpret_cast<PPacketHeader>(retBuffer);
-		_pHeader->signature = ntohl(_pHeader->signature);
-		_pHeader->packetLength = ntohl(_pHeader->packetLength);
-		_pHeader->msgid = ntohl(_pHeader->msgid);
-		_pHeader->reserved = ntohl(_pHeader->reserved);
-		_pHeader->crc = ntohl(_pHeader->crc);
+		_pPacketHeader = reinterpret_cast<PPacketHeader>(retBuffer);
+		_pPacketHeader->signature = ntohl(_pPacketHeader->signature);
+		_pPacketHeader->packetLength = ntohl(_pPacketHeader->packetLength);
+		_pPacketHeader->msgid = ntohl(_pPacketHeader->msgid);
+		_pPacketHeader->reserved = ntohl(_pPacketHeader->reserved);
+		_pPacketHeader->crc = ntohl(_pPacketHeader->crc);
 	}
 
 	return true;
@@ -388,7 +388,7 @@ bool TCPClient::setPacketHeader()
 
 void TCPClient::resetPacketHeader()
 {
-	safeDeleteArray(_pHeader);
+	safeDeleteArray(_pPacketHeader);
 }
 
 bool TCPClient::onRecv()
@@ -408,12 +408,12 @@ bool TCPClient::onRecv()
 			}
 
 		} else if(0 == recvBytes) {
-			LOG(L"接受数据时，发现网络会话已经关闭");
+			LOG("接受数据时，发现网络会话已经关闭");
 			return false;
 
 		} else if(SOCKET_ERROR ==  recvBytes) {
 			if(WSAEWOULDBLOCK != WSAGetLastError()) {
-				SYSLOG(L"接受数据错误", WSAGetLastError());
+				SYSLOG("接受数据错误", WSAGetLastError());
 				return false;
 			} else {
 				break;
@@ -421,7 +421,7 @@ bool TCPClient::onRecv()
 		}
 	}
 
-	LOG(L"收到读数据消息 - %u", _recvBuffer.dataLength());
+	LOG("收到读数据消息 - %u", _recvBuffer.dataLength());
 	return true;
 }
 

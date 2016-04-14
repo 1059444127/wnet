@@ -2,17 +2,18 @@
 
 #include "TCPServer.h"
 
-#include "TCPServerSession.h"
 #include "libConnect.h"
+#include "TCPServerSession.h"
 
 namespace WStone {
 
 unsigned __stdcall workerLoop(void* arg)
 {   
 	auto pTCPServer = static_cast<TCPServer*>(arg);
-	OVERLAPPED *pOverlapped = nullptr;
-	PIOCPSocketContext  pSocketContext = nullptr;
+
 	unsigned long transferedBytes = 0;
+	PSocketContext  pSocketContext = nullptr;
+	OVERLAPPED *pOverlapped = nullptr;
 	BOOL ret = false;
 
 	while(true) {
@@ -24,33 +25,10 @@ unsigned __stdcall workerLoop(void* arg)
 			break;// 退出通知
 		}
 
-		if(!ret) {  
-			if(!pTCPServer->doError(pSocketContext, GetLastError())) {
-				break;
-			}
-
-			continue;
-		}
-			
-		PIOCPIOContext pIOContext = CONTAINING_RECORD(
-			pOverlapped, IOCPIOContext, overlapped);  
-
-		if((0 == transferedBytes) && (pIOContext->opType & 
-		   (OPT_READ + OPT_WRITE))) {  
-			pTCPServer->doClose(pSocketContext);
-			
-			continue;
-		}
-
-		switch(pIOContext->opType) {
-			case OPT_ACCEPT:
-				pTCPServer->doAccept(pSocketContext, pIOContext); break;
-			case OPT_READ:
-				pTCPServer->doRead(pSocketContext, pIOContext); break;
-			case OPT_WRITE:
-				pTCPServer->doWrite(pSocketContext, pIOContext); break;
-			default:
-				LOG(L"操作类型参数异常"); break;
+		auto pIOContext = CONTAINING_RECORD(pOverlapped, 
+			IOContext, overlapped);
+		if(!pTCPServer->handleIO(pSocketContext, pIOContext, ret)) {
+			break;
 		}
 	}
 
@@ -59,12 +37,12 @@ unsigned __stdcall workerLoop(void* arg)
 
 TCPServer::TCPServer(void) : 
 _isStarted(false),
-_iocp(nullptr),
+_hIOCP(nullptr),
 _pThreads(nullptr),
 _fnAcceptEx(nullptr),
 _fnGetAcceptExSockAddrs(nullptr),
 _listenSocketContext(nullptr),
-_nThreads(2 * getCPUNumbers())
+_threads(2 * getCPUNumbers())
 {
 	
 }
@@ -91,13 +69,13 @@ void TCPServer::stop()
 {
 	if(_isStarted) {
 
-		for(int i = 0; i < _nThreads; ++i) {
+		for(int i = 0; i < _threads; ++i) {
 			PostQueuedCompletionStatus(getIOCP(), 0, (ULONG_PTR)0, nullptr);
 		}
 
-		WaitForMultipleObjects(_nThreads, _pThreads, true, INFINITE);
+		WaitForMultipleObjects(_threads, _pThreads, true, INFINITE);
 
-		for(int i = 0; i < _nThreads; ++i){
+		for(int i = 0; i < _threads; ++i){
 			safeRelease(_pThreads[i]);
 		}
 
@@ -113,9 +91,9 @@ void TCPServer::stop()
 
 bool TCPServer::initIOCP()
 {
-	_iocp = CreateIoCompletionPort(INVALID_HANDLE_VALUE, nullptr, 0, 0);
-	if(nullptr == _iocp) {
-		SYSLOG(L"建立完成端口失败", GetLastError());
+	_hIOCP = CreateIoCompletionPort(INVALID_HANDLE_VALUE, nullptr, 0, 0);
+	if(nullptr == _hIOCP) {
+		SYSLOG("建立完成端口失败", GetLastError());
 		return false;
 	}
 
@@ -124,17 +102,17 @@ bool TCPServer::initIOCP()
 
 void TCPServer::deInitIOCP()
 {
-	safeRelease(_iocp);
+	safeRelease(_hIOCP);
 }
 
 bool TCPServer::createListenerSocket(unsigned short port)
 {
-	_listenSocketContext = new IOCPSocketContext();
+	_listenSocketContext = new SocketContext();
 
 	_listenSocketContext->fd = 
 		WSASocket(AF_INET, SOCK_STREAM, 0, 0, 0, WSA_FLAG_OVERLAPPED);
 	if(INVALID_SOCKET == _listenSocketContext->fd) {
-		LOG(L"初始化Socket失败[%d]", WSAGetLastError());
+		LOG("初始化Socket失败[%d]", WSAGetLastError());
 		return false;
 	}
 
@@ -150,12 +128,12 @@ bool TCPServer::createListenerSocket(unsigned short port)
 
 	if(SOCKET_ERROR == bind(_listenSocketContext->fd, 
 		(sockaddr*)&netAddr, sizeof(netAddr))) {
-		LOG(L"bind函数执行错误[%d]", WSAGetLastError());
+		LOG("bind函数执行错误[%d]", WSAGetLastError());
 		return false;
 	}
 
 	if(SOCKET_ERROR == listen(_listenSocketContext->fd, 128)) {
-		LOG(L"listen()函数执行出现错误[%d]", WSAGetLastError());
+		LOG("listen()函数执行出现错误[%d]", WSAGetLastError());
 		return false;
 	}
 
@@ -168,7 +146,7 @@ bool TCPServer::createListenerSocket(unsigned short port)
 		&guidAcceptEx, sizeof(guidAcceptEx), 
 		&_fnAcceptEx, sizeof(_fnAcceptEx), 
 		&dwBytes, nullptr, nullptr)) {  
-		SYSLOG(L"获取AcceptEx函数指针失败", WSAGetLastError()); 
+		SYSLOG("获取AcceptEx函数指针失败", WSAGetLastError()); 
 		return false;  
 	}  
 
@@ -177,7 +155,7 @@ bool TCPServer::createListenerSocket(unsigned short port)
 		&guidAcceptExSockAddrs, sizeof(guidAcceptExSockAddrs), 
 		&_fnGetAcceptExSockAddrs, sizeof(_fnGetAcceptExSockAddrs),   
 		&dwBytes, nullptr, nullptr)) {  
-		SYSLOG(L"获取GetAcceptExSockAddrs函数指针失败", WSAGetLastError());  
+		SYSLOG("获取GetAcceptExSockAddrs函数指针失败", WSAGetLastError());  
 		return false; 
 	}  
 
@@ -189,13 +167,13 @@ bool TCPServer::createListenerSocket(unsigned short port)
 	}
 
 	unsigned int id;
-	_pThreads = new HANDLE[_nThreads];
-	for(int i = 0; i < _nThreads; i++) {
+	_pThreads = new HANDLE[_threads];
+	for(int i = 0; i < _threads; i++) {
 		_pThreads[i] = (HANDLE)_beginthreadex(nullptr, 0, 
 			&workerLoop, (void*)this, 0, &id);
 	}
 
-	LOG(L"IOCP初始化成功，建立[%d]个消息处理工作者", _nThreads);
+	LOG("IOCP初始化成功，建立[%d]个消息处理工作者", _threads);
 	return true;
 }
 
@@ -237,7 +215,7 @@ const std::vector<ISession*>& TCPServer::getClients()
 	return _clients;
 }
 
-ISession* TCPServer::findClients(PIOCPSocketContext pSocketContext)
+ISession* TCPServer::findClients(PSocketContext pSocketContext)
 {
 	FastMutex::ScopedLock lock(_mtClients);
 
@@ -265,7 +243,7 @@ void TCPServer::clearClients()
 
 void TCPServer::mountMessage(unsigned int id, messageCallBack cb)
 {
-	FastMutex::ScopedLock lock(_mtMsgs);
+	FastMutex::ScopedLock lock(_mtmsgs);
 
 	auto itFound = _msgs.find(id);
 	if(itFound == _msgs.end()) {
@@ -275,36 +253,36 @@ void TCPServer::mountMessage(unsigned int id, messageCallBack cb)
 
 messageCallBack TCPServer::getMessageCallBack(unsigned int id)
 {
-	FastMutex::ScopedLock lock(_mtMsgs);
+	FastMutex::ScopedLock lock(_mtmsgs);
 
 	auto itFound = _msgs.find(id);
 	if(itFound != _msgs.end()) {
 		return itFound->second;
 	}
 
-	LOG(L"发现获取未注册消息回调函数");
+	LOG("发现获取未注册消息回调函数");
 	return nullptr;
 }
 
-bool TCPServer::bind2IOCP(PIOCPSocketContext pSocketContext)
+bool TCPServer::bind2IOCP(PSocketContext pSocketContext)
 {
 	if(nullptr == CreateIoCompletionPort((HANDLE)pSocketContext->fd, 
-		_iocp, (ULONG_PTR)pSocketContext, 0)) {
-		LOG(L"执行bind2IOCP错误[%d]", GetLastError());
+		_hIOCP, (ULONG_PTR)pSocketContext, 0)) {
+		LOG("执行bind2IOCP错误[%d]", GetLastError());
 		return false;
 	}
 
 	return true;
 }
 
-bool TCPServer::postAccept(PIOCPIOContext pAcceotIOContext)
+bool TCPServer::postAccept(PIOContext pAcceotIOContext)
 {
 	pAcceotIOContext->opType = OPT_ACCEPT;
 
 	pAcceotIOContext->fd = WSASocket(AF_INET, SOCK_STREAM, 
 		IPPROTO_TCP, nullptr, 0, WSA_FLAG_OVERLAPPED);  
 	if(INVALID_SOCKET == pAcceotIOContext->fd) {  
-		SYSLOG(L"创建用于Accept的Socket失败", WSAGetLastError());
+		SYSLOG("创建用于Accept的Socket失败", WSAGetLastError());
 		return false;
 	} 
 
@@ -313,20 +291,53 @@ bool TCPServer::postAccept(PIOCPIOContext pAcceotIOContext)
 		pAcceotIOContext->fd, pAcceotIOContext->overlappedBuffer.buf, 
 		0, sizeof(sockaddr_in) + 16, sizeof(sockaddr_in) + 16, &dwBytes, 
 		&pAcceotIOContext->overlapped)) {  
-		
-		if(WSA_IO_PENDING != WSAGetLastError()) {  
-			LOG(L"postAccept()失败[%d]", WSAGetLastError());
-			return false;
-		}
+
+			if(WSA_IO_PENDING != WSAGetLastError()) {  
+				LOG("postAccept()失败[%d]", WSAGetLastError());
+				return false;
+			}
 	}
 
 	return true;
 }
 
-void TCPServer::doAccept(
-	PIOCPSocketContext pSocketContext, 
-	PIOCPIOContext pIOContext)
+bool TCPServer::handleIO(
+	PSocketContext pSocketContext,
+	PIOContext pIOContext,
+	BOOL status) 
 {
+	if(!status) {  
+		if(!handleError(pSocketContext)) {
+			return false;
+		}
+
+		return true;
+	}
+
+	if( (0 == pIOContext->overlapped.InternalHigh) && 
+		(pIOContext->opType & (OPT_READ + OPT_WRITE))) {  
+		handleClose(pSocketContext);
+		return true;
+	}
+
+	switch(pIOContext->opType) {
+		case OPT_ACCEPT: handleAccept(pSocketContext, pIOContext); break;
+		case OPT_READ: handleRead(pSocketContext, pIOContext); break;
+		case OPT_WRITE: handleWrite(pSocketContext, pIOContext); break;
+		default: LOG("操作类型参数异常"); break;
+	}
+
+	return true;
+}
+
+void TCPServer::handleAccept(
+	PSocketContext pSocketContext, 
+	PIOContext pIOContext)
+{
+	setsockopt(pIOContext->fd, SOL_SOCKET, 
+		SO_UPDATE_ACCEPT_CONTEXT, 
+		(char*)&pSocketContext->fd, sizeof(SOCKET));
+
 	sockaddr_in* clientAddr = nullptr;
 	sockaddr_in* localAddr = nullptr;
 
@@ -341,10 +352,9 @@ void TCPServer::doAccept(
 
 	auto clientPort = ntohs(clientAddr->sin_port);
 	auto wClientIP = AnsiToUnicode(inet_ntoa(clientAddr->sin_addr));
+	LOG("创建新会话[%s-%d]", wClientIP.c_str(), clientPort);
 
-	LOG(L"创建新会话[%s-%d]", wClientIP.c_str(), clientPort);
-
-	PIOCPSocketContext pClientSocketContext = new IOCPSocketContext();
+	PSocketContext pClientSocketContext = new SocketContext();
 	pClientSocketContext->fd = pIOContext->fd;
 	pClientSocketContext->clientIP = wClientIP;
 	pClientSocketContext->clientPort = clientPort;
@@ -365,9 +375,9 @@ void TCPServer::doAccept(
 	postAccept(pIOContext);
 }
 
-void TCPServer::doRead(
-	PIOCPSocketContext pSocketContext, 
-	PIOCPIOContext pIOContext)
+void TCPServer::handleRead(
+	PSocketContext pSocketContext, 
+	PIOContext pIOContext)
 {
 	auto pClient = dynamic_cast<TCPServerSession*>(
 		findClients(pSocketContext));
@@ -377,47 +387,47 @@ void TCPServer::doRead(
 	}
 }
 
-void TCPServer::doWrite(
-	PIOCPSocketContext pSocketContext, 
-	PIOCPIOContext pIOContext)
+void TCPServer::handleWrite(
+	PSocketContext pSocketContext, 
+	PIOContext pIOContext)
 {
 	pSocketContext->removeIOContext(pIOContext);
 }
 
-bool TCPServer::doError(
-	PIOCPSocketContext pSocketContext, 
-	unsigned long errID)
+bool TCPServer::handleError(PSocketContext pSocketContext)
 {
-	auto* pClients = findClients(pSocketContext);
+	FastMutex::ScopedLock lock(_mtClients);
 
+	auto* pClient = findClients(pSocketContext);
+	if(nullptr == pClient) {
+		return true;// 数据包过多可能造成该会话已经被清理掉
+	}
+
+	auto errID = WSAGetLastError();
 	if(WAIT_TIMEOUT == errID) {
-
-		if(!pClients->isAlive()) {
-			LOG(L"网络超时，检测到客户端异常退出");
-			removeClients(pClients);
-			return true;
+		if(!pClient->isAlive()) {
+			LOG("网络超时！客户端离线");
+			removeClients(pClient);
 		} else {
-			LOG(L"网络超时！");
-			return true;
+			LOG("网络超时！客户端在线");
 		}
 
 	} else if(ERROR_NETNAME_DELETED == errID) {
-		LOG(L"检测到客户端异常退出");
-		removeClients(pClients);
-		return true;
+		LOG("检测到客户端非正常离线");
+		removeClients(pClient);
 
 	} else {
-		LOG(L"完成端口操作出现错误，线程退出[%d]", errID);
+		SYSLOG("完成端口操作出现错误，线程退出", errID);
 		return false;
 	}
 
 	return true;
 }
 
-void TCPServer::doClose(PIOCPSocketContext pSocketContext)
+void TCPServer::handleClose(PSocketContext pSocketContext)
 {
 	auto pClient = findClients(pSocketContext);
-	LOG(L"客户端[%s-%d]退出系统", pClient->getPeerIP(),
+	LOG("客户端[%s-%d]正常离线", pClient->getPeerIP(),
 		pClient->getPeerPort());
 
 	removeClients(pClient);

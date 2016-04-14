@@ -10,7 +10,7 @@ class TCPServer;
 class TCPServerSession : public ISession
 {
 public:
-	TCPServerSession(TCPServer* pServer, PIOCPSocketContext data);
+	TCPServerSession(TCPServer* pServer, PSocketContext data);
 	~TCPServerSession();
 
 public:
@@ -20,22 +20,22 @@ public:
 	virtual unsigned short getPeerPort() override;
 	virtual bool send(unsigned int, const char8*, unsigned int) override;
 	virtual bool send(unsigned int, const char8*) override;
-	virtual unsigned int recv(char8*, unsigned int) override { return 0; };
+	virtual unsigned int recv(char8*, unsigned int) override { return 0; }
 
 public:
 	bool postSend(unsigned int, const char8*, unsigned int);
-	bool postRecv(PIOCPIOContext pIOContext);
+	bool postRecv(PIOContext pIOContext);
 	bool setPacketHeader();
 	void resetPacketHeader();
 	bool isValidPacket(char8** retPacket);
 	PPacketHeader getPacketHeader() { return _pHeader; }
-	bool unPacket(PIOCPIOContext pIOContext);
+	bool unPacket(PIOContext pIOContext);
 
 private:
 	TCPServer* _pServer;
 	LoopBuffer _recvBuffer;
 	PPacketHeader _pHeader;
-	PIOCPSocketContext _socketContext;
+	PSocketContext _socketContext;
 };
 
 }
