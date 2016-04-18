@@ -14,7 +14,7 @@ class TCPClient :
 	friend class Singleton<TCPClient>;
 
 public:
-	TCPClient(void);
+	TCPClient();
 
 protected:
 	~TCPClient(void);

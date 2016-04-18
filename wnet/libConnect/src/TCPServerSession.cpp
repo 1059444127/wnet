@@ -3,6 +3,7 @@
 #include "TCPServerSession.h"
 
 #include "TCPServer.h"
+#include "libConnect.h"
 
 namespace WStone {
 
@@ -67,6 +68,15 @@ bool TCPServerSession::postSend(
 	auto sendBuffer = PacketHeader::packet(msgid, pdata, length);
 	if(nullptr == sendBuffer) {
 		return false;
+	}
+
+	auto netManager = LibConnect::getInstance();
+	if(nullptr != netManager->getEncryptCallback()) {
+		auto cryptSendBuffer = 
+			netManager->getEncryptCallback()(sendBuffer, length);
+		assert(nullptr != cryptSendBuffer);
+		safeDeleteArray(sendBuffer);
+		sendBuffer = cryptSendBuffer;
 	}
 	
 	unsigned sendedBytes = 0;
@@ -186,8 +196,19 @@ bool TCPServerSession::isValidPacket(char8** retPacket)
 
 bool TCPServerSession::unPacket(PIOContext pIOContext)
 {
-	_recvBuffer.write(pIOContext->buffer, 
-		pIOContext->overlapped.InternalHigh);
+	auto netManager = LibConnect::getInstance();
+	if(nullptr != netManager->getDecryptCallback()) {
+		unsigned recvBytes = pIOContext->overlapped.InternalHigh;
+		auto recvOldBuffer = netManager->getDecryptCallback()(
+			pIOContext->buffer, recvBytes);
+		assert(nullptr != recvOldBuffer);
+		_recvBuffer.write(recvOldBuffer, recvBytes);
+		safeDeleteArray(recvOldBuffer);
+
+	} else {
+		_recvBuffer.write(pIOContext->buffer, 
+			pIOContext->overlapped.InternalHigh);
+	}
 
 	if(!setPacketHeader()) {
 		return true;

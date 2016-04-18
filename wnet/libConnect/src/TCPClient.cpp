@@ -2,6 +2,8 @@
 
 #include "TCPClient.h"
 
+#include "libConnect.h"
+
 namespace WStone {
 
 unsigned __stdcall workEventLoop(void* arg)
@@ -77,7 +79,7 @@ unsigned __stdcall workEventLoop(void* arg)
 }
 
 
-TCPClient::TCPClient(void) : 
+TCPClient::TCPClient() : 
 _session(nullptr),
 _fd(INVALID_SOCKET),
 _thread(nullptr),
@@ -90,7 +92,6 @@ _isConnected(false)
 {
 
 }
-
 
 TCPClient::~TCPClient(void)
 {
@@ -268,6 +269,15 @@ bool TCPClient::send(
 	auto sendBuffer = PacketHeader::packet(msgid, data, leng);
 	auto sendBytes = 0;
 
+	auto netManager = LibConnect::getInstance();
+	if(nullptr != netManager->getEncryptCallback()) {
+		auto cryptSendBuffer = 
+			netManager->getEncryptCallback()(sendBuffer, leng);
+		assert(nullptr != cryptSendBuffer);
+		safeDeleteArray(sendBuffer);
+		sendBuffer = cryptSendBuffer;
+	}
+
 	sendBytes = ::send(_fd, sendBuffer, leng, 0);
 	if(SOCKET_ERROR == sendBytes && 
 		WSA_IO_PENDING != WSAGetLastError()) {
@@ -386,15 +396,27 @@ void TCPClient::resetPacketHeader()
 bool TCPClient::onRecv()
 {
 	int recvBytes = 0;
-
 	char8 tempBuffer[s_bufferlength] = {0};
+	auto netManager = LibConnect::getInstance();
 
 	while(true) {
 		memset(tempBuffer, 0, s_bufferlength);
 		recvBytes = ::recv(_fd, tempBuffer, s_bufferlength, 0);
 
 		if(0 < recvBytes) {
-			_recvBuffer.write(tempBuffer, recvBytes);
+			
+			if(nullptr != netManager->getDecryptCallback()) {
+				auto recvOldBuffer = 
+					netManager->getDecryptCallback()(tempBuffer, 
+					(unsigned&)recvBytes);
+				assert(nullptr != recvOldBuffer);
+				_recvBuffer.write(recvOldBuffer, recvBytes);
+				safeDeleteArray(recvOldBuffer);
+
+			} else {
+				_recvBuffer.write(tempBuffer, recvBytes);
+			}
+
 			if(!unPacket()) {
 				return false;
 			}
