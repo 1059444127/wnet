@@ -26,7 +26,7 @@ public:
 	/**********************************************************
 	*@brief : 挂载感兴趣的消息
 	***********************************************************/
-	virtual void mountMessage(unsigned int id, messageCallBack cb) = 0;
+	virtual void mountMessage(unsigned id, messageCallBack cb) = 0;
 };
 
 }

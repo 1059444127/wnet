@@ -7,12 +7,12 @@ namespace WStone {
 
 void _internal_logCallback(
 	const char* file, 
-	unsigned int line, 
+	unsigned line, 
 	const wchar_t* msg, ...);
 
 void _internal_sysLog(
 	const char* file, 
-	unsigned int line,
+	unsigned line,
 	const wchar_t* cErr, 
 	unsigned long errID);
 
@@ -50,8 +50,8 @@ enum OperationType
 	OPT_WRITE = 1 << 2,
 };
 
-const static unsigned int s_signature = 0x19881213;
-const static unsigned int s_bufferlength = 8 * 1024;
+const static unsigned s_signature = 0x19881213;
+const static unsigned s_bufferlength = 8 * 1024;
 
 typedef struct _tagPERIODATA
 {
@@ -64,7 +64,7 @@ typedef struct _tagPERIODATA
 	char8* buffer;
 	WSABUF overlappedBuffer;
 	OperationType opType;
-	unsigned int fd;
+	unsigned fd;
 }IOContext, *PIOContext;
 
 typedef struct _tagPERSOCKETDATA
@@ -75,7 +75,7 @@ typedef struct _tagPERSOCKETDATA
 	PIOContext getNewIOContext();
 	void removeIOContext(PIOContext pIOContext);
 
-	unsigned int fd;
+	unsigned fd;
 	unsigned short clientPort;
 	std::wstring clientIP;
 	FastMutex _mtIOContexts;
@@ -89,21 +89,21 @@ typedef struct _tagPERSOCKETDATA
 typedef struct _tagPacketHeader
 {
 	static char8* packet(
-		unsigned int msgid, 
+		unsigned msgid, 
 		const char8* data, 
-		unsigned int& length);
+		unsigned& length);
 
-	unsigned int packetLength;
-	unsigned int signature;
-	unsigned int msgid;
-	unsigned int reserved;
-	unsigned int crc;
+	unsigned packetLength;
+	unsigned signature;
+	unsigned msgid;
+	unsigned reserved;
+	unsigned crc;
 	char8 body[0];
 }PacketHeader, *PPacketHeader;
 #pragma pack(pop)
 
-#define LOG(msg, ...) _internal_logCallback(__FILE__, __LINE__, L#msg, __VA_ARGS__)
-#define SYSLOG(msg, errid) _internal_sysLog(__FILE__, __LINE__, L#msg, errid)
+#define LOG(msg, ...) _internal_logCallback(__FILE__, __LINE__, L##msg, __VA_ARGS__)
+#define SYSLOG(msg, errid) _internal_sysLog(__FILE__, __LINE__, L##msg, errid)
 
 }
 

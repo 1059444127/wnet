@@ -24,7 +24,7 @@ unsigned __stdcall workerLoop(void* arg)
 		if(nullptr == pSocketContext){
 			break;// 退出通知
 		}
-
+		
 		auto pIOContext = CONTAINING_RECORD(pOverlapped, 
 			IOContext, overlapped);
 		if(!pTCPServer->handleIO(pSocketContext, pIOContext, ret)) {
@@ -109,10 +109,10 @@ bool TCPServer::createListenerSocket(unsigned short port)
 {
 	_listenSocketContext = new SocketContext();
 
-	_listenSocketContext->fd = 
-		WSASocket(AF_INET, SOCK_STREAM, 0, 0, 0, WSA_FLAG_OVERLAPPED);
+	_listenSocketContext->fd = WSASocket(AF_INET, 
+		SOCK_STREAM, 0, 0, 0, WSA_FLAG_OVERLAPPED);
 	if(INVALID_SOCKET == _listenSocketContext->fd) {
-		LOG("初始化Socket失败[%d]", WSAGetLastError());
+		SYSLOG("初始化Socket失败", WSAGetLastError());
 		return false;
 	}
 
@@ -128,12 +128,12 @@ bool TCPServer::createListenerSocket(unsigned short port)
 
 	if(SOCKET_ERROR == bind(_listenSocketContext->fd, 
 		(sockaddr*)&netAddr, sizeof(netAddr))) {
-		LOG("bind函数执行错误[%d]", WSAGetLastError());
+		SYSLOG("bind()执行错误", WSAGetLastError());
 		return false;
 	}
 
 	if(SOCKET_ERROR == listen(_listenSocketContext->fd, 128)) {
-		LOG("listen()函数执行出现错误[%d]", WSAGetLastError());
+		SYSLOG("listen()执行出现错误", WSAGetLastError());
 		return false;
 	}
 
@@ -166,7 +166,7 @@ bool TCPServer::createListenerSocket(unsigned short port)
 		}
 	}
 
-	unsigned int id;
+	unsigned id = 0;
 	_pThreads = new HANDLE[_threads];
 	for(int i = 0; i < _threads; i++) {
 		_pThreads[i] = (HANDLE)_beginthreadex(nullptr, 0, 
@@ -241,7 +241,7 @@ void TCPServer::clearClients()
 	_clients.clear();
 }
 
-void TCPServer::mountMessage(unsigned int id, messageCallBack cb)
+void TCPServer::mountMessage(unsigned id, messageCallBack cb)
 {
 	FastMutex::ScopedLock lock(_mtmsgs);
 
@@ -251,7 +251,7 @@ void TCPServer::mountMessage(unsigned int id, messageCallBack cb)
 	}
 }
 
-messageCallBack TCPServer::getMessageCallBack(unsigned int id)
+messageCallBack TCPServer::getMessageCallBack(unsigned id)
 {
 	FastMutex::ScopedLock lock(_mtmsgs);
 
@@ -293,7 +293,7 @@ bool TCPServer::postAccept(PIOContext pAcceotIOContext)
 		&pAcceotIOContext->overlapped)) {  
 
 			if(WSA_IO_PENDING != WSAGetLastError()) {  
-				LOG("postAccept()失败[%d]", WSAGetLastError());
+				SYSLOG("postAccept()失败", WSAGetLastError());
 				return false;
 			}
 	}

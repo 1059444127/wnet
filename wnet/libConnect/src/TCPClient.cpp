@@ -100,7 +100,7 @@ TCPClient::~TCPClient(void)
 }
 
 void TCPClient::mountMessage(
-	unsigned int id, 
+	unsigned id, 
 	messageCallBack cb)
 {
 	FastMutex::ScopedLock lock(_mtMsgIDCB);
@@ -111,7 +111,7 @@ void TCPClient::mountMessage(
 	}
 }
 
-messageCallBack TCPClient::getMessageCallBack(unsigned int id)
+messageCallBack TCPClient::getMessageCallBack(unsigned id)
 {
 	FastMutex::ScopedLock lock(_mtMsgIDCB);
 
@@ -125,15 +125,15 @@ messageCallBack TCPClient::getMessageCallBack(unsigned int id)
 }
 
 void TCPClient::setTimeOut(
-	unsigned int recvs, 
-	unsigned int sends)
+	unsigned recvs, 
+	unsigned sends)
 {
 	if(INVALID_SOCKET != _fd || _isAsync) {
 		return;
 	}
 
-	setOption(SO_SNDTIMEO, sends, sizeof(unsigned int));
-	setOption(SO_RCVTIMEO, recvs, sizeof(unsigned int));
+	setOption(SO_SNDTIMEO, sends, sizeof(unsigned));
+	setOption(SO_RCVTIMEO, recvs, sizeof(unsigned));
 }
 
 ISession* TCPClient::getSession()
@@ -257,9 +257,9 @@ bool TCPClient::setOption(int opname, int value, int sizes)
 }
 
 bool TCPClient::send(
-	unsigned int msgid, 
+	unsigned msgid, 
 	const char8* data, 
-	unsigned int leng)
+	unsigned leng)
 {
 	if(nullptr == data || 0 == leng || !isValidSession()) {
 		return false;
@@ -283,17 +283,9 @@ bool TCPClient::send(
 	return true;
 }
 
-bool TCPClient::send(
-	unsigned int msgid, 
-	const char8* data)
-{
-	auto len = strlen(data);
-	return TCPClient::send(msgid, data, len);
-}
-
-unsigned int TCPClient::recv(
+unsigned TCPClient::recv(
 	char8* buffer,
-	unsigned int lens)
+	unsigned lens)
 {
 	if(!isValidSession() || nullptr == buffer || !_isAsync) {
 		return 0;
@@ -429,7 +421,7 @@ bool TCPClient::onSend()
 {
 	while(_sendBuffer.dataLength()) {
 
-		unsigned int readBytes = _sendBuffer.dataLength();
+		unsigned readBytes = _sendBuffer.dataLength();
 		auto sends = _sendBuffer.read(readBytes);
 		auto retBytes = ::send(_fd, sends, readBytes, 0);
 

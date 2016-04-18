@@ -21,14 +21,14 @@ public:
 	virtual bool start(unsigned short port) override;
 	virtual void stop() override;
 	virtual const std::vector<ISession*>& getClients() override;
-	virtual void mountMessage(unsigned int id, messageCallBack cb) override;
+	virtual void mountMessage(unsigned id, messageCallBack cb) override;
 
 public:
 	HANDLE getIOCP() { return _hIOCP; }
 	void addClients(ISession*);
 	void removeClients(ISession*);
 	ISession* findClients(PSocketContext);
-	messageCallBack getMessageCallBack(unsigned int id);
+	messageCallBack getMessageCallBack(unsigned id);
 	bool handleIO(PSocketContext pSocketContext, 
 		PIOContext pIOCntext,BOOL status);
 
@@ -57,7 +57,7 @@ private:
 	std::vector<ISession*> _clients;
 	PSocketContext _listenSocketContext;
 	const static int s_maxPostAccept = 10;
-	std::map<unsigned int, messageCallBack> _msgs;
+	std::map<unsigned, messageCallBack> _msgs;
 	LPFN_GETACCEPTEXSOCKADDRS _fnGetAcceptExSockAddrs;
 };
 

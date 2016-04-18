@@ -9,7 +9,7 @@ namespace WStone {
 
 void _internal_logCallback(
 	const char* file, 
-	unsigned int line, 
+	unsigned line, 
 	const wchar_t* msg, ...)
 {
 	static FastMutex s_mutexLog;
@@ -20,7 +20,13 @@ void _internal_logCallback(
 
 	memset(buf, 0, s_maxLeng);
 
-	_snwprintf_s(buf, s_maxLeng -1, L"[%s-%u] ", 
+	SYSTEMTIME st;
+	GetLocalTime(&st);
+
+	_snwprintf_s(buf, s_maxLeng -1, 
+		L"%u-%02d-%02d %02d:%02d:%02d.%03d [%s-%u] ", 
+		st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute,
+		st.wSecond, st.wMilliseconds,
 		AnsiToUnicode(file).c_str(), line);
 	auto sizes = wcslen(buf);
 
@@ -42,7 +48,7 @@ void _internal_logCallback(
 
 void _internal_sysLog(
 	const char* file, 
-	unsigned int line,
+	unsigned line,
 	const wchar_t* cErr, 
 	unsigned long errID)
 {
@@ -134,9 +140,9 @@ void _tagPERSOCKETDATA::removeIOContext(PIOContext pIOContext)
 }
 
 char8* _tagPacketHeader::packet(
-	unsigned int msgid, 
+	unsigned msgid, 
 	const char8* data, 
-	unsigned int& length)
+	unsigned& length)
 {
 	if(nullptr == data || 0 == length) {
 		return nullptr;

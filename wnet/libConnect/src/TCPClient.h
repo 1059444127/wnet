@@ -20,19 +20,18 @@ protected:
 	~TCPClient(void);
 
 public:
-	virtual void setTimeOut(unsigned int, unsigned int) override;
-	virtual ISession* getSession() override;
-	virtual bool connect(const wchar_t*, unsigned short, bool = true) override;
-	virtual void disconnect() override;
 	virtual bool isAlive() override;
+	virtual void disconnect() override;
 	virtual bool isValidSession() override;
-	virtual unsigned int getHandle() override { return _fd; }
+	virtual ISession* getSession() override;
+	virtual unsigned getHandle() override { return _fd; }
 	virtual const wchar_t* getPeerIP() override {return _ip.c_str(); }
 	virtual unsigned short getPeerPort() override {return _port; };
-	virtual bool send(unsigned int, const char8*, unsigned int) override;
-	virtual bool send(unsigned int, const char8*) override;
-	virtual unsigned int recv(char8* buffer, unsigned int lens) override;
-	virtual void mountMessage(unsigned int id, messageCallBack cb) override;
+	virtual void setTimeOut(unsigned, unsigned) override;
+	virtual bool send(unsigned, const char8*, unsigned) override;
+	virtual unsigned recv(char8* buffer, unsigned lens) override;
+	virtual bool connect(const wchar_t*, unsigned short, bool = true) override;
+	virtual void mountMessage(unsigned id, messageCallBack cb) override;
 
 public:
 	bool onSend();
@@ -46,7 +45,7 @@ private:
 	void resetPacketHeader();
 	bool isValidPacket(char8** retPacket);
 	bool setOption(int opname, int value, int sizes);
-	messageCallBack getMessageCallBack(unsigned int id);
+	messageCallBack getMessageCallBack(unsigned id);
 
 private:
 	int _fd;
@@ -61,7 +60,7 @@ private:
 	LoopBuffer _recvBuffer;
 	PPacketHeader _pPacketHeader;
 	FastMutex _mtMsgIDCB;
-	std::map<unsigned int, messageCallBack> _mapMsgIDCB;
+	std::map<unsigned, messageCallBack> _mapMsgIDCB;
 };
 
 }

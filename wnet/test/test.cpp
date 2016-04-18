@@ -16,7 +16,7 @@ void saveToFile(const WStone::char8* data, unsigned len)
 
 void msgCallBack(WStone::ISession* session, 
 				 const WStone::char8* data,
-				 unsigned int lengs)
+				 unsigned lengs)
 {
 	if(1024 * 8 >= lengs) {
 		OutputDebugStringW(L"收到的数据为\n");

@@ -18,7 +18,7 @@ public:
 	*@recvs : 接受超时时间
 	*@sends : 发送超时时间
 	***********************************************************/
-	virtual void setTimeOut(unsigned int recvs, unsigned int sends) = 0;
+	virtual void setTimeOut(unsigned recvs, unsigned sends) = 0;
 
 	/**********************************************************
 	*@brief : 连接TCP服务
@@ -52,7 +52,7 @@ public:
 	*@id : 消息id
 	*@cb : 消息回调函数
 	***********************************************************/
-	virtual void mountMessage(unsigned int id, messageCallBack cb) = 0;
+	virtual void mountMessage(unsigned id, messageCallBack cb) = 0;
 };
 
 }

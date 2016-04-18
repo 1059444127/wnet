@@ -6,11 +6,13 @@
 
 namespace WStone {
 
-TCPServerSession::TCPServerSession(TCPServer* pServer, 
-								   PSocketContext data) : 
+TCPServerSession::TCPServerSession(
+	TCPServer* pServer, 
+	PSocketContext data) : 
 _pServer(pServer),
 _socketContext(data),
 _recvBuffer(s_bufferlength),
+_sendBuffer(s_bufferlength),
 _pHeader(nullptr)
 {
 
@@ -22,7 +24,7 @@ TCPServerSession::~TCPServerSession(void)
 	safeDelete(_pHeader);
 }
 
-unsigned int TCPServerSession::getHandle()
+unsigned TCPServerSession::getHandle()
 {
 	if(nullptr != _socketContext) {
 		return _socketContext->fd;
@@ -50,24 +52,24 @@ unsigned short TCPServerSession::getPeerPort()
 }
 
 bool TCPServerSession::send(
-	unsigned int msgid, 
+	unsigned msgid, 
 	const char8* pdata, 
-	unsigned int length)
+	unsigned length)
 {
 	return this->postSend(msgid, pdata, length);
 }
 
 bool TCPServerSession::postSend(
-	unsigned int msgid, 
+	unsigned msgid, 
 	const char8* pdata, 
-	unsigned int length)
+	unsigned length)
 {
 	auto sendBuffer = PacketHeader::packet(msgid, pdata, length);
 	if(nullptr == sendBuffer) {
 		return false;
 	}
 	
-	unsigned int sendedBytes = 0;
+	unsigned sendedBytes = 0;
 	do{
 		auto ioContext = _socketContext->getNewIOContext();
 		ioContext->fd = getHandle();
@@ -82,8 +84,7 @@ bool TCPServerSession::postSend(
 			&ioContext->overlappedBuffer, 1, nullptr,
 			0, &ioContext->overlapped, nullptr);
 
-		if(SOCKET_ERROR == result && 
-			WSA_IO_PENDING != WSAGetLastError()) {
+		if(SOCKET_ERROR == result && WSA_IO_PENDING != WSAGetLastError()) {
 			LOG("发送数据错误[%s-%u]", getPeerIP(), msgid);
 			SYSLOG("错误信息", WSAGetLastError());
 			_socketContext->removeIOContext(ioContext);
@@ -94,11 +95,6 @@ bool TCPServerSession::postSend(
 
 	safeDeleteArray(sendBuffer);
 	return true;
-}
-
-bool TCPServerSession::send(unsigned int msgid, const char8* pdata)
-{
-	return this->send(msgid, pdata, strlen(pdata));
 }
 
 bool TCPServerSession::postRecv(PIOContext pIOContext)
@@ -168,7 +164,7 @@ bool TCPServerSession::isValidPacket(char8** retPacket)
 	auto oldCrc = _pHeader->crc;
 	_pHeader->crc = 0;
 
-	unsigned int retBytes = _pHeader->packetLength - sizeof(PacketHeader);
+	unsigned retBytes = _pHeader->packetLength - sizeof(PacketHeader);
 	char8* data = _recvBuffer.read(retBytes);
 
 	char8* packet = new char8[_pHeader->packetLength];
